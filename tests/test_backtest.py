@@ -136,3 +136,22 @@ def test_target_fills_from_the_candle_after_entry_and_stop_wins_a_tie():
     set_bar(b5, 6, 102, 108.5, 98, 108)       # the same candle also touches the stop: counts as a loss
     t = run(b5, s)
     assert (t[0]["exit"], t[0]["reason"]) == (99.0, "Stop loss")
+
+
+def test_limit_open_keeps_first_come_and_prefers_the_most_traded():
+    rows = [{"symbol": "A", "entry_t": 100, "exit_t": 500}, {"symbol": "B", "entry_t": 100, "exit_t": 300},
+            {"symbol": "C", "entry_t": 100, "exit_t": 400}, {"symbol": "D", "entry_t": 300, "exit_t": 600},
+            {"symbol": "E", "entry_t": 310, "exit_t": 700}]
+    kept = backtest.limit_open(rows, {"A": 1.0, "B": 9.0, "C": 5.0, "D": 1.0, "E": 1.0}, 2)
+    assert [r["symbol"] for r in kept] == ["B", "C", "D"]      # A loses the tie; D takes B's slot; E finds both busy
+
+
+def test_market_filter_needs_enough_stocks_and_room_to_move():
+    t = np.array([10, 20, 30, 40], dtype=np.int64)
+    sig = Signals(np.array([1, 1, -1, 1], np.int8), np.zeros(4), np.zeros(4), np.zeros(4, np.int8), np.zeros(4, np.int8))
+    ctx = {"long": (np.array([10, 20, 40]), np.array([20, 5, 30])), "short": (np.array([30]), np.array([18])),
+           "all": (t, np.array([100, 100, 100, 100])), "up": (t, np.array([60, 60, 30, 90]))}
+    backtest.apply_market_filter(sig, t, ctx, {"min_same_signals": 15, "max_breadth_pct": 80})
+    # 10: 20 buys, 60% up -> keep. 20: only 5 buys -> drop. 30: 18 sells, 70% already down -> keep.
+    # 40: 30 buys but 90% already up -> drop.
+    assert sig.setup.tolist() == [1, 0, -1, 0]

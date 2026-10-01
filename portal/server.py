@@ -130,8 +130,10 @@ def create_app(bind_host: str = "127.0.0.1") -> FastAPI:
             return [{**p, "default": p["value"], "value": saved.get(p["key"], p["value"])} for p in specs]
         return {"id": s.id, "name": s.name, "summary": s.summary, "timeframe_min": s.timeframe_min,
                 "rules_html": s.rules_html(),
-                "settings": [{"title": "Strategy rules", "params": with_values(s.params)},
-                             {"title": "Trading and costs", "params": with_values(backtest.ENGINE_PARAMS)}],
+                "settings": [{"title": "Strategy rules", "params": with_values(s.params)}]
+                + [{"title": title, "params": with_values([q for q in backtest.ENGINE_PARAMS
+                                                           if q.get("group", "Trading and costs") == title])}
+                   for title in ("Market filter and limits", "Trading and costs")],
                 "runs": [_public_job(j) for j in store.list_jobs("backtest", sid)],
                 "active": _public_job(store.active_job("backtest", sid))}
 

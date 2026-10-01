@@ -36,6 +36,19 @@ def zone(plus: np.ndarray, minus: np.ndarray, adx: np.ndarray) -> np.ndarray:
     return z
 
 
+def _vs_sma20(bars) -> np.ndarray:
+    """Yesterday's close versus the average of the last 20 daily closes (up to yesterday), in %.
+    One value per candle; NaN until 20 days of history exist."""
+    days, first = np.unique(bars.day, return_index=True)
+    close = bars.c[np.r_[first[1:], len(bars.c)] - 1]            # each day's last close
+    out = np.full(len(days), np.nan)
+    if len(days) > 20:
+        c = np.cumsum(np.r_[0.0, close])
+        sma = (c[20:] - c[:-20]) / 20                            # sma[k] = average of days k..k+19
+        out[20:] = (close[19:-1] / sma[:-1] - 1) * 100           # day d uses days d-20..d-1
+    return out[np.searchsorted(days, bars.day)]
+
+
 def signals(bars, p: dict) -> Signals:
     plus, minus, adx = dmi(bars.h, bars.l, bars.c, int(p["di_len"]), int(p["adx_len"]))
     z = zone(plus, minus, adx)
@@ -50,6 +63,13 @@ def signals(bars, p: dict) -> Signals:
     setup = np.zeros(n, dtype=np.int8)
     setup[entered & up] = 1
     setup[entered & down] = -1
+
+    max_price = float(p.get("max_price", 0) or 0)
+    if max_price > 0:                               # only cheaper shares
+        setup[bars.c >= max_price] = 0
+    stretch = float(p.get("min_stretch_pct", 0) or 0)
+    if stretch > 0 and n:                           # only stocks stretched against their 20-day average
+        setup[~(_vs_sma20(bars) * setup <= -stretch)] = 0
 
     exit_long = np.zeros(n, dtype=np.int8)
     exit_short = np.zeros(n, dtype=np.int8)

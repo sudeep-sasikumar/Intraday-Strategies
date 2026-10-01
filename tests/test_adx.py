@@ -97,3 +97,25 @@ def test_atr_stop_and_target_settings(cgpower, adx):
     dist = alt.entry[i] - alt.stop[i]
     assert dist > 0 and np.isclose(alt.target[i], alt.entry[i] + 1.5 * dist)
     assert not (alt.exit_long == adx.EXIT_ADX_ABOVE).any()
+
+
+def test_stretch_uses_only_earlier_days(cgpower, adx):
+    """The 20-day comparison for a day must come from the 20 days before it."""
+    v = adx._vs_sma20(cgpower)
+    days = np.unique(cgpower.day)
+    close = np.array([cgpower.c[cgpower.day == d][-1] for d in days])
+    d = 30
+    want = (close[d - 1] / close[d - 20:d].mean() - 1) * 100
+    assert np.allclose(v[cgpower.day == days[d]], want)
+    assert np.isnan(v[cgpower.day == days[19]]).all()
+    cut = int(np.flatnonzero(cgpower.day == days[d])[5])          # later candles must not change it
+    assert np.allclose(adx._vs_sma20(cgpower.slice(0, cut + 1))[-1], want)
+
+
+def test_stretch_and_price_filters_only_remove_setups(cgpower, adx):
+    base = adx.signals(cgpower, P).setup
+    cheap = adx.signals(cgpower, {**P, "max_price": 1.0}).setup
+    assert not cheap.any()
+    st = adx.signals(cgpower, {**P, "min_stretch_pct": 3.0}).setup
+    v = adx._vs_sma20(cgpower)
+    assert (st[st != 0] == base[st != 0]).all() and (v[st > 0] <= -3.0).all() and (v[st < 0] >= 3.0).all()

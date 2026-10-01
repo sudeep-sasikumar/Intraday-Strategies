@@ -90,12 +90,13 @@ def simulate(symbol: str, b5: Bars, b15: Bars, sig: Signals, p: dict, tf_min: in
     sides = p.get("sides", "both")
     slip = float(p["slippage_pct"]) / 100.0
     capital = float(p["capital_per_trade"])
+    overlap = bool(p.get("allow_overlap"))      # research only: judge every setup on its own
 
     trades: list[dict] = []
     free_t = 0          # time the previous trade ended; setups that closed before it are ignored
     for i in np.flatnonzero(sig.setup).tolist():
         side = int(sig.setup[i])
-        if b15.t[i] < start_ts or b15.t[i] + tf_s < free_t:
+        if b15.t[i] < start_ts or (b15.t[i] + tf_s < free_t and not overlap):
             continue
         if (side > 0 and sides == "short") or (side < 0 and sides == "long"):
             continue

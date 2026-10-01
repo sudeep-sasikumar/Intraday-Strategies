@@ -1,0 +1,52 @@
+<p>Uses the <b>DMI indicator (14, 14)</b> on the <b>15-minute</b> chart. It draws three lines:
+<span class="dot" style="background:#1a9e6a"></span><b>DI+</b>,
+<span class="dot" style="background:#d9455f"></span><b>DI−</b> and
+<span class="dot" style="background:#8a8f98"></span><b>ADX</b>.
+The ADX <i>number</i> (20, 40…) is ignored. Only <i>where the ADX line sits</i> matters.</p>
+
+<svg viewBox="0 0 700 330" class="diagram" role="img" aria-label="ADX line enters between the DI lines from below (entry) and leaves above both (exit)">
+  <rect x="250" y="40" width="270" height="230" fill="#1a9e6a" opacity="0.10"/>
+  <line x1="250" y1="40" x2="250" y2="270" stroke="currentColor" opacity=".4" stroke-dasharray="4 4"/>
+  <line x1="520" y1="40" x2="520" y2="270" stroke="currentColor" opacity=".4" stroke-dasharray="4 4"/>
+  <polyline fill="none" stroke="#1a9e6a" stroke-width="2.5" points="60,200 180,195 230,90 400,85 470,100 520,122 660,165"/>
+  <polyline fill="none" stroke="#d9455f" stroke-width="2.5" points="60,150 180,155 250,215 330,235 660,240"/>
+  <polyline fill="none" stroke="currentColor" stroke-width="2.5" points="60,250 200,245 250,215 400,160 520,122 600,105 660,100"/>
+  <circle cx="250" cy="215" r="6" fill="none" stroke="currentColor" stroke-width="2"/>
+  <circle cx="520" cy="122" r="6" fill="none" stroke="currentColor" stroke-width="2"/>
+  <g fill="currentColor" font-size="13">
+    <text x="250" y="30" text-anchor="middle" font-weight="bold">ENTRY setup</text>
+    <text x="520" y="30" text-anchor="middle" font-weight="bold">EXIT</text>
+    <text x="155" y="290" text-anchor="middle" opacity=".7">ADX below both: wait</text>
+    <text x="385" y="290" text-anchor="middle" opacity=".7">ADX between the lines: stay in</text>
+    <text x="600" y="290" text-anchor="middle" opacity=".7">ADX above both: out</text>
+    <text x="585" y="92">ADX</text>
+    <text x="350" y="318" text-anchor="middle" opacity=".7" font-size="12">Buy example (DI+ on top). For a sell, swap green and red.</text>
+  </g>
+  <text x="300" y="75" fill="#1a9e6a" font-size="13">DI+</text>
+  <text x="560" y="232" fill="#d9455f" font-size="13">DI−</text>
+</svg>
+
+<ol class="rules">
+  <li><b>Trend.</b> DI+ above DI− = up, look for buys. DI− above DI+ = down, look for sells.</li>
+  <li><b>Setup.</b> The ADX line was <i>below both</i> DI lines and now closes <i>between</i> them, and it is rising.</li>
+  <li><b>Entry.</b> Buy if the <i>very next</i> candle breaks the setup candle's <b>high</b> (sell if it breaks the <b>low</b>). If it doesn't, the setup is dropped.</li>
+  <li><b>Stop loss.</b> The other end of the setup candle: its low for a buy, its high for a sell.</li>
+  <li><b>Exit.</b> No fixed target. Get out when the ADX line closes <i>above both</i> DI lines (strength used up).</li>
+  <li><b>Skip.</b> If ADX comes in between the DI lines <i>from above</i>, no trade.</li>
+</ol>
+
+<h4>Filled in by me (the video doesn't say)</h4>
+<ul>
+  <li>No new entries after 14:45. Everything still open is closed at 15:15. Nothing is carried overnight.</li>
+  <li>Also exit if DI+ and DI− swap places (the trend flipped).</li>
+  <li>One trade per stock at a time.</li>
+</ul>
+
+<h4>Left out</h4>
+<ul>
+  <li>The first-candle "Morning Tea" rule and overnight carry (BTST), as you asked.</li>
+  <li>"Both DI lines curling toward each other" as a reversal warning: too vague to code.</li>
+</ul>
+
+<p class="muted">Source: Upsurge Club video with Rajesh Jain, "ADX Trading Strategy: Entry, Exit &amp; Stop-Loss Explained".
+The setup and exit were checked against the chart frames in the video (CG Power, 21–22 July 2026).</p>

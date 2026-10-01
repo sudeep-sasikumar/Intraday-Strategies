@@ -1,0 +1,34 @@
+# Builds the portal image on every push to master and publishes it to GitHub Container Registry.
+# The VPS (docker-compose.yaml) only pulls this ready-made image - nothing is built on the VPS.
+name: Docker image
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt && python -m pytest -q
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ghcr.io/sudeep-sasikumar/intraday-strategies:latest
+          labels: org.opencontainers.image.source=https://github.com/sudeep-sasikumar/Intraday-Strategies

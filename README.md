@@ -1,0 +1,75 @@
+# Intraday Strategies
+
+One place to build, backtest and (later) run intraday strategies on NSE stocks.
+Each strategy is its own folder and gets its own tab in the portal. The first one is **ADX intraday**.
+
+> This app never places orders. It downloads public candle data, backtests rules, and shows results.
+
+## What's here
+
+| Folder / file | What it is |
+|---|---|
+| `ADX intraday strategy/` | The ADX strategy: `strategy.py` (rules), `config.yaml` (settings), `rules.html` (rules in plain words) |
+| `common/` | Shared by every strategy: data download, indicators, trade simulation and costs, statistics, database |
+| `portal/` | The web portal |
+| `cli.py` | Command line: download data, run a backtest, start the portal |
+| `data/nifty500.csv` | The stock list (Nifty 500, from NSE) |
+| `tests/` | Automated checks |
+| `var/` | Created when you run it: candles, database, logs. Never uploaded to GitHub |
+
+## Run it on this PC
+
+Double-click `run.bat`. The first time it installs everything (a few minutes), then opens http://localhost:8100.
+
+1. **Data tab → Download.** Three years of 5-minute candles for 500 stocks. Takes 1–2 hours the first time; later top-ups take minutes. You can stop and restart it.
+2. **ADX intraday → Backtest → Run backtest.** Takes a few minutes.
+3. Look at **Overview** (verdict and headline numbers), **Backtest** (running total and breakdowns), **Trades** (click any trade to see it on the chart) and **Stocks**.
+4. **Settings** changes the rules or the costs for the next run. Old runs are kept so you can compare.
+
+The same things from a terminal:
+
+```bash
+.venv\Scripts\python.exe cli.py download
+```
+```bash
+.venv\Scripts\python.exe cli.py backtest adx
+```
+```bash
+.venv\Scripts\python.exe -m pytest
+```
+
+## Running on the VPS
+
+Same pattern as the Ignition & Coil scanner: pushing to GitHub builds a Docker image; the VPS only pulls it.
+
+1. Push to GitHub. Wait for the **Docker image** action to go green (repo → Actions).
+2. The first time only: on GitHub open your profile → Packages → `intraday-strategies` → Package settings → change visibility to **Public** (otherwise the VPS cannot pull it).
+3. You need a web address for the portal that is different from the scanner's. Either a subdomain you own (add a DNS **A** record pointing to the VPS IP), or the free trick `strategies.<VPS IP with dashes>.sslip.io` (e.g. `strategies.203-0-113-7.sslip.io`).
+4. In Hostinger → VPS → Docker Manager → **Compose from URL**, paste:
+   `https://raw.githubusercontent.com/sudeep-sasikumar/Intraday-Strategies/master/docker-compose.yaml`
+   and set two environment variables: `PORTAL_PASSWORD` (long) and `DOMAIN` (the address from step 3).
+5. Open `https://<DOMAIN>`, sign in, then Data → Download and Backtest → Run backtest, as on the PC.
+
+To update later: push to GitHub, wait for the action, press **Redeploy** in Docker Manager. Data and past runs survive (they live in a Docker volume).
+
+## How a backtest fills trades (on the cautious side)
+
+- A setup is only known when its candle closes. The entry must trigger in the very next candle (setting: *Entry valid for*).
+- 5-minute candles decide what happened first inside a 15-minute candle. If entry and stop are both touched in one 5-minute candle, it counts as a loss.
+- A candle that opens beyond the entry price or the stop is filled at that open, not at the level.
+- Strategy exits are filled at the open of the next 5-minute candle. Everything still open at 15:15 is closed.
+- Costs on every trade: slippage on both fills, brokerage, STT, exchange and SEBI charges, stamp duty and GST.
+- Every setup is taken with a fixed amount (default ₹1,00,000), on every stock, with no limit on how many are open at once. *Most trades open at once* tells you how much capital that would need.
+
+What it cannot show: today's Nifty 500 list is used for the whole period (stocks that dropped out are missing), and thinly traded stocks fill worse in real life than here.
+
+## Adding another strategy
+
+1. Make a new folder next to `ADX intraday strategy/` (any name).
+2. Put three files in it, copying the ADX ones as a template:
+   - `config.yaml`: a unique `id`, a `name`, a one-line `summary`, `timeframe_min`, and its settings.
+   - `strategy.py`: a `signals(bars, p)` function that returns, for every candle, whether there is a setup (+1 buy / −1 sell), the entry price, the stop price, and when to exit. Optionally `indicators(bars, p)` for lines under the trade chart.
+   - `rules.html`: the rules in plain words for the Overview tab.
+3. Restart the portal. The new strategy appears as a new master tab, with the same sub-tabs, and in **Compare**.
+
+Nothing in `common/` or `portal/` needs to change.

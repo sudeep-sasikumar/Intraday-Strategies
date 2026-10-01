@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Intraday Strategies</title>
+<link rel="icon" href="/static/favicon.svg">
+<link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="#/">Intraday Strategies</a>
+  <nav id="master" class="tabs master" aria-label="Strategies"></nav>
+  <button id="logout" class="link" hidden>Sign out</button>
+</header>
+<main id="view"><p class="muted pad">Loading…</p></main>
+
+<div id="modal" class="modal" hidden>
+  <div class="sheet" role="dialog" aria-modal="true">
+    <div class="sheet-head"><div id="modal-title"></div><button id="modal-close" class="link" aria-label="Close">✕</button></div>
+    <div id="modal-body"></div>
+  </div>
+</div>
+<div id="toast" class="toast" hidden></div>
+
+<script src="/static/vendor/lightweight-charts.standalone.production.js"></script>
+<script src="/static/app.js"></script>
+</body>
+</html>

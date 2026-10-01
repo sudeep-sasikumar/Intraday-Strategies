@@ -24,3 +24,28 @@ params:
     value: true
     type: bool
     help: Close the trade if DI+ and DI− change places (the trend flipped). Not stated in the video; my assumption.
+  - key: stop_rule
+    label: Stop loss rule
+    value: candle
+    type: choice
+    choices: [candle, atr]
+    help: candle = the other end of the setup candle (the video's rule). atr = a fixed multiple of the stock's average 15-minute candle range (ATR 14) from the entry.
+  - key: stop_atr_mult
+    label: Stop distance (x ATR)
+    value: 2.0
+    type: float
+    min: 0.25
+    max: 100
+    help: Only used when the stop rule is atr. A very large number means, in effect, no stop.
+  - key: target_r
+    label: Profit target (x stop distance)
+    value: 0
+    type: float
+    min: 0
+    max: 20
+    help: 0 = no target (the video's rule). 2 = take profit at twice the stop distance.
+  - key: exit_on_adx
+    label: Exit when ADX goes above both DI
+    value: true
+    type: bool
+    help: The video's exit. Switch off to hold until the stop, the target or the 15:15 square-off.

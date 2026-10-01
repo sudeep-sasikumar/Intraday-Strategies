@@ -6,6 +6,8 @@ How a trade is filled (deliberately on the cautious side):
 - 5-minute candles decide what happened first inside a bigger candle. If the entry and the stop
   are both touched inside one 5-minute candle, the trade counts as stopped out.
 - A candle that opens beyond the entry price or the stop fills at that open (gap), not at the level.
+- A profit target counts only from the candle after the entry, and if the stop and the target are
+  both touched inside one 5-minute candle the trade counts as stopped out.
 - Strategy exits are known at a candle's close and are filled at the next 5-minute open.
 - Everything still open at the square-off time is closed at that candle's open.
 - Costs: slippage on both fills plus Indian intraday-equity charges.
@@ -101,6 +103,7 @@ def simulate(symbol: str, b5: Bars, b15: Bars, sig: Signals, p: dict, tf_min: in
         if (side > 0 and sides == "short") or (side < 0 and sides == "long"):
             continue
         level, stop = float(sig.entry[i]), float(sig.stop[i])
+        target = float(sig.target[i]) if sig.target is not None and np.isfinite(sig.target[i]) else None
         if not (np.isfinite(level) and np.isfinite(stop)) or (level - stop) * side <= 0:
             continue
 
@@ -151,6 +154,11 @@ def simulate(symbol: str, b5: Bars, b15: Bars, sig: Signals, p: dict, tf_min: in
                 hit = l[m] <= stop if side > 0 else h[m] >= stop
                 if gap or hit:
                     x, exit_px, reason, exit_t = m, (o[m] if gap else stop), "Stop loss", int(b5.t[m])
+                    free_t = exit_t + 300
+                    break
+                if target is not None and (h[m] >= target if side > 0 else l[m] <= target):
+                    fill = max(o[m], target) if side > 0 else min(o[m], target)     # a gap beyond it fills at the open
+                    x, exit_px, reason, exit_t = m, fill, "Target", int(b5.t[m])
                     free_t = exit_t + 300
                     break
 

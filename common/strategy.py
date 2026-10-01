@@ -29,6 +29,7 @@ class Signals:
     exit_long: np.ndarray    # 0 = hold, otherwise a code from exit_labels: close longs after this candle
     exit_short: np.ndarray
     exit_labels: dict[int, str] = field(default_factory=dict)
+    target: np.ndarray | None = None   # optional profit-target price for that setup
 
 
 @dataclass

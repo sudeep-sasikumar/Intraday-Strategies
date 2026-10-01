@@ -87,3 +87,13 @@ def test_no_lookahead(cgpower, adx):
             assert np.array_equal(getattr(part, name), getattr(full, name)[:cut])
         m = part.setup != 0
         assert np.array_equal(part.entry[m], full.entry[:cut][m])
+
+
+def test_atr_stop_and_target_settings(cgpower, adx):
+    base = adx.signals(cgpower, P)
+    alt = adx.signals(cgpower, {**P, "stop_rule": "atr", "stop_atr_mult": 2.0, "target_r": 1.5, "exit_on_adx": False})
+    i = _at(cgpower, 2026, 7, 21, 13, 45)
+    assert np.array_equal(base.setup, alt.setup) and alt.entry[i] == base.entry[i]
+    dist = alt.entry[i] - alt.stop[i]
+    assert dist > 0 and np.isclose(alt.target[i], alt.entry[i] + 1.5 * dist)
+    assert not (alt.exit_long == adx.EXIT_ADX_ABOVE).any()

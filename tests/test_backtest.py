@@ -121,3 +121,18 @@ def test_charges_for_a_one_lakh_round_trip():
     # 40 brokerage + 25 STT + 5.94 exchange + 0.2 SEBI + 3 stamp + 18% GST on (40 + 5.94 + 0.2)
     assert c == pytest.approx(40 + 25 + 5.94 + 0.2 + 3 + 0.18 * 46.14)
     assert backtest.charges(5_000, 5_000, p) < 40      # 0.1% is lower than the flat fee on small orders
+
+
+def test_target_fills_from_the_candle_after_entry_and_stop_wins_a_tie():
+    b5 = day_bars()
+    set_bar(b5, 4, 100, 102.5, 100, 102)      # entry at 102
+    set_bar(b5, 6, 102, 108.5, 102, 108)      # reaches the 108 target
+    b15 = aggregate(b5, 15)
+    s = sig_for(b15, 0, 1, 102.0, 99.0)
+    s.target = np.full(len(b15), np.nan)
+    s.target[0] = 108.0
+    t = run(b5, s)
+    assert (t[0]["exit"], t[0]["reason"]) == (108.0, "Target")
+    set_bar(b5, 6, 102, 108.5, 98, 108)       # the same candle also touches the stop: counts as a loss
+    t = run(b5, s)
+    assert (t[0]["exit"], t[0]["reason"]) == (99.0, "Stop loss")

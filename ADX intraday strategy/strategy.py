@@ -9,15 +9,15 @@ matters is where the ADX line sits relative to the two DI lines:
 
 Setup  : ADX moves from below to inside and is rising. Direction = whichever DI is on top.
 Entry  : break of the setup candle's high (buy) or low (sell).
-Stop   : the other end of the setup candle.
-Exit   : ADX goes above both DI lines, or the DI lines swap sides.
+Stop   : the other end of the setup candle (or, as a setting, N x ATR from the entry).
+Exit   : ADX goes above both DI lines, or the DI lines swap sides (plus an optional target).
 Skipped: ADX coming inside from above (the previous state was not "below").
 """
 from __future__ import annotations
 
 import numpy as np
 
-from common.indicators import dmi
+from common.indicators import atr, dmi
 from common.strategy import Signals
 
 EXIT_ADX_ABOVE, EXIT_DI_SWAP = 1, 2
@@ -56,13 +56,21 @@ def signals(bars, p: dict) -> Signals:
     if p.get("exit_on_di_swap", True):
         exit_long[down] = EXIT_DI_SWAP
         exit_short[up] = EXIT_DI_SWAP
-    exit_long[z == ABOVE] = EXIT_ADX_ABOVE
-    exit_short[z == ABOVE] = EXIT_ADX_ABOVE
+    if p.get("exit_on_adx", True):
+        exit_long[z == ABOVE] = EXIT_ADX_ABOVE
+        exit_short[z == ABOVE] = EXIT_ADX_ABOVE
 
-    return Signals(setup=setup,
-                   entry=np.where(setup > 0, bars.h, bars.l),
-                   stop=np.where(setup > 0, bars.l, bars.h),
-                   exit_long=exit_long, exit_short=exit_short, exit_labels=EXIT_LABELS)
+    entry = np.where(setup > 0, bars.h, bars.l)
+    if p.get("stop_rule", "candle") == "atr":       # a fixed distance instead of the setup candle's other end
+        dist = float(p.get("stop_atr_mult", 2.0)) * atr(bars.h, bars.l, bars.c, 14)
+        stop = entry - setup * dist
+    else:
+        stop = np.where(setup > 0, bars.l, bars.h)
+    target = None
+    if float(p.get("target_r", 0) or 0) > 0:        # target = this many times the stop distance
+        target = entry + (entry - stop) * float(p["target_r"])
+    return Signals(setup=setup, entry=entry, stop=stop, exit_long=exit_long, exit_short=exit_short,
+                   exit_labels=EXIT_LABELS, target=target)
 
 
 def indicators(bars, p: dict) -> list[dict]:

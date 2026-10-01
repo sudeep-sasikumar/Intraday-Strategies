@@ -27,6 +27,22 @@ def rma(x: np.ndarray, n: int) -> np.ndarray:
     return out
 
 
+def ema(x: np.ndarray, n: int) -> np.ndarray:
+    """Exponential moving average seeded with the SMA of the first n values (ta.ema)."""
+    out = np.full(len(x), np.nan)
+    if len(x) < n:
+        return out
+    prev = float(np.mean(x[:n]))
+    vals = [prev]
+    alpha = 2.0 / (n + 1)
+    beta = 1.0 - alpha
+    for v in x[n:].tolist():
+        prev = alpha * v + beta * prev
+        vals.append(prev)
+    out[n - 1:] = vals
+    return out
+
+
 def true_range(h: np.ndarray, l: np.ndarray, c: np.ndarray) -> np.ndarray:
     """True range; the first bar is NaN (no previous close), as in ta.tr."""
     tr = np.full(len(h), np.nan)

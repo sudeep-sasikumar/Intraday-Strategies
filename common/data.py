@@ -153,10 +153,11 @@ def _save_meta(meta: dict) -> None:
     (CANDLES / "_fetched.json").write_text(json.dumps(meta))
 
 
-async def download(stocks: list[Stock], start: date, end: date, *, concurrency: int = 4, per_s: float = 8.0,
+async def download(stocks: list[Stock], start: date, end: date, *, concurrency: int = 2, per_s: float = 1.1,
                    progress: Callable[[int, int, str], None] | None = None) -> dict:
     """Download (or top up) 5-minute history for each stock. Safe to stop and re-run: finished
-    stocks only fetch what is new."""
+    stocks only fetch what is new. Upstox allows about 2,000 requests per 30 minutes and one month
+    of 5-minute candles per request, so the pace is set just under that."""
     ensure_dirs()
     thr = _Throttle(per_s)
     sem = asyncio.Semaphore(concurrency)

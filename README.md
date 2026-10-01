@@ -21,7 +21,7 @@ Each strategy is its own folder and gets its own tab in the portal. The first on
 
 Double-click `run.bat`. The first time it installs everything (a few minutes), then opens http://localhost:8100.
 
-1. **Data tab → Download.** Three years of 5-minute candles for 500 stocks. Takes 1–2 hours the first time; later top-ups take minutes. You can stop and restart it.
+1. **Data tab → Download.** Three years of 5-minute candles for 500 stocks. Takes about 5 hours the first time because Upstox limits the speed; later top-ups take about 10 minutes. You can stop and restart it.
 2. **ADX intraday → Backtest → Run backtest.** Takes a few minutes.
 3. Look at **Overview** (verdict and headline numbers), **Backtest** (running total and breakdowns), **Trades** (click any trade to see it on the chart) and **Stocks**.
 4. **Settings** changes the rules or the costs for the next run. Old runs are kept so you can compare.

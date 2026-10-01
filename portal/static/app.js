@@ -407,7 +407,7 @@ async function viewData() {
       ${stat('Up to', day(s.to), 'Last day fetched for every stock')}
       ${stat('Size', nf0.format(s.size_mb) + ' MB', 'Stored on this server')}</div>
     <div class="card"><div class="row" style="justify-content:space-between">
-      <div><h3>${s.downloaded ? 'Top up to today' : 'Download candles'}</h3><div class="muted">The first download of 3 years takes 1–2 hours. Later top-ups take a few minutes. Safe to stop and restart.</div></div>
+      <div><h3>${s.downloaded ? 'Top up to today' : 'Download candles'}</h3><div class="muted">The first download of 3 years takes about 5 hours (Upstox limits the speed). Later top-ups take about 10 minutes. Safe to stop and restart.</div></div>
       <button class="primary" id="dl" ${active ? 'disabled' : ''}>${active ? 'Downloading…' : (s.downloaded ? 'Update data' : 'Download')}</button></div>
       <div id="run-prog">${active ? progressHtml(active) : (d.last ? `<div class="muted" style="margin-top:8px">Last download: ${esc(d.last.message)} (${fmtDate(d.last.finished || d.last.started)})</div>` : '')}</div></div>
     <div class="card prose"><h3>Good to know</h3><ul>

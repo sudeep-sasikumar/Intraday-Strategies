@@ -30,6 +30,8 @@ class Signals:
     exit_short: np.ndarray
     exit_labels: dict[int, str] = field(default_factory=dict)
     target: np.ndarray | None = None   # optional profit-target price for that setup
+    market_entry: bool = False         # True: enter at the next candle's open (entry[] is only a reference price)
+    target_r: float = 0.0              # > 0: target = this many times the actual entry-to-stop distance
 
 
 @dataclass

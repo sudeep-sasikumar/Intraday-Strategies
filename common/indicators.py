@@ -43,6 +43,21 @@ def ema(x: np.ndarray, n: int) -> np.ndarray:
     return out
 
 
+def session_vwap(h: np.ndarray, l: np.ndarray, c: np.ndarray, v: np.ndarray, day: np.ndarray) -> np.ndarray:
+    """Volume-weighted average price since the day's first candle, on (high + low + close) / 3
+    (TradingView's VWAP with source hlc3, anchor Session). NaN until the day has traded volume."""
+    tp = (h + l + c) / 3.0
+    pv, vol = np.cumsum(tp * v), np.cumsum(v)
+    first = np.flatnonzero(np.r_[True, day[1:] != day[:-1]])           # index of each day's first candle
+    idx = first[np.searchsorted(first, np.arange(len(day)), "right") - 1]
+    base_pv = np.where(idx > 0, pv[idx - 1], 0.0)
+    base_v = np.where(idx > 0, vol[idx - 1], 0.0)
+    with np.errstate(invalid="ignore", divide="ignore"):
+        out = (pv - base_pv) / (vol - base_v)
+    out[(vol - base_v) <= 0] = np.nan
+    return out
+
+
 def true_range(h: np.ndarray, l: np.ndarray, c: np.ndarray) -> np.ndarray:
     """True range; the first bar is NaN (no previous close), as in ta.tr."""
     tr = np.full(len(h), np.nan)

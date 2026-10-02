@@ -2,7 +2,8 @@
 
 How a trade is filled (deliberately on the cautious side):
 - A setup is known at the close of its candle. The entry order sits at the setup's entry price
-  for the next `entry_valid_bars` candles of the same day.
+  for the next `entry_valid_bars` candles of the same day. A strategy that enters "at the close"
+  (market_entry) is filled at the next candle's open instead.
 - 5-minute candles decide what happened first inside a bigger candle. If the entry and the stop
   are both touched inside one 5-minute candle, the trade counts as stopped out.
 - A candle that opens beyond the entry price or the stop fills at that open (gap), not at the level.
@@ -118,7 +119,13 @@ def simulate(symbol: str, b5: Bars, b15: Bars, sig: Signals, p: dict, tf_min: in
 
         # ---- entry: the level must break inside the next candle(s) of the same day
         e, entry = -1, 0.0
-        for j in range(i + 1, min(i + 1 + valid, n15)):
+        if sig.market_entry:                       # filled at the open of the candle after the setup
+            j = i + 1
+            if j < n15 and day15[j] == day15[i] and min15[j] <= last_entry and first5[j] < end5[j]:
+                m = int(first5[j])
+                if min5[m] < square and (o[m] - stop) * side > 0:      # a gap through the stop: no trade
+                    e, entry = m, o[m]
+        for j in range(i + 1, min(i + 1 + valid, n15)) if not sig.market_entry else ():
             if day15[j] != day15[i] or min15[j] > last_entry:
                 break
             for m in range(first5[j], end5[j]):
@@ -137,8 +144,13 @@ def simulate(symbol: str, b5: Bars, b15: Bars, sig: Signals, p: dict, tf_min: in
 
         # ---- exit
         exit_arr = sig.exit_long if side > 0 else sig.exit_short
+        if sig.target_r > 0:
+            target = entry + (entry - stop) * sig.target_r
         if (side > 0 and l[e] <= stop) or (side < 0 and h[e] >= stop):
             x, exit_px, reason, exit_t = e, stop, "Stop loss", int(b5.t[e])     # same 5-min candle: assume stopped
+            free_t = exit_t + 300
+        elif sig.market_entry and target is not None and (h[e] >= target if side > 0 else l[e] <= target):
+            x, exit_px, reason, exit_t = e, target, "Target", int(b5.t[e])      # entered at the open, so this candle counts
             free_t = exit_t + 300
         else:
             m, pending = e, 0

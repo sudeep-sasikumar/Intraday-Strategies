@@ -202,7 +202,7 @@ def create_app(bind_host: str = "127.0.0.1") -> FastAPI:
 
         def series(v):
             return [[tt, None if not math.isfinite(x) else round(x, 2)] for tt, x in zip(ist, np.asarray(v)[keep].tolist())]
-        panes = [{"title": pane["title"], "lines": [{"name": ln["name"], "color": ln["color"], "data": series(ln["values"])}
+        panes = [{"title": pane["title"], "overlay": bool(pane.get("overlay")), "lines": [{"name": ln["name"], "color": ln["color"], "data": series(ln["values"])}
                                                     for ln in pane["lines"]]} for pane in s.indicators(bars, p)]
         candles = [[tt, o, h, l, c] for tt, o, h, l, c in zip(ist, bars.o[keep].tolist(), bars.h[keep].tolist(),
                                                              bars.l[keep].tolist(), bars.c[keep].tolist())]

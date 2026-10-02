@@ -1,0 +1,28 @@
+<p>Uses the <b>5-minute</b> chart with four lines:
+<span class="dot" style="background:#1a9e6a"></span><b>9 EMA</b>,
+<span class="dot" style="background:#d9455f"></span><b>21 EMA</b>,
+<span class="dot" style="background:#3b82f6"></span><b>VWAP</b> (resets every day) and
+<span class="dot" style="background:#8a8f98"></span><b>ADX 14</b>.
+The idea: a 9/21 crossover alone gives many false signals, so it is only traded when VWAP and ADX agree.</p>
+
+<ol class="rules">
+  <li><b>Crossover.</b> 9 EMA crosses above the 21 EMA = look to buy. Crosses below = look to sell.</li>
+  <li><b>VWAP.</b> For a buy the candle must close above VWAP; for a sell, below it.</li>
+  <li><b>ADX.</b> ADX must be above 20 on that candle, for buys and for sells (it measures strength, not direction).</li>
+  <li><b>Wait if needed.</b> If the crossover candle fails VWAP or ADX, keep waiting. The first later candle that passes everything is the confirmation candle. Its colour does not matter.</li>
+  <li><b>Entry.</b> When the confirmation candle closes (filled at the next candle's open).</li>
+  <li><b>Stop loss.</b> The 21 EMA's value on the confirmation candle.</li>
+  <li><b>Take profit.</b> Twice the stop distance (risk 1 to make 2). The video's alternative: hold until the opposite crossover (a setting).</li>
+</ol>
+
+<h4>Filled in by me (the video doesn't say)</h4>
+<ul>
+  <li>The wait lasts while the 9 EMA stays on the same side of the 21 EMA. One trade per crossover.</li>
+  <li>The crossover and the confirmation must be on the same day (a setting).</li>
+  <li>The video wants a visible gap between price and VWAP but gives no number. Default: any close beyond VWAP; a minimum gap is a setting.</li>
+  <li>The close must also be beyond the 9 EMA, as in the video's examples.</li>
+  <li>No new entries after 14:45. Everything still open is closed at 15:15.</li>
+</ul>
+
+<p class="muted">Source: Investalogy video, "Best Intraday &amp; Scalping Strategy | EMA 9/21 + VWAP + ADX Setup".
+The chart in the video is HDFC Bank, 5-minute, with EMA 9/21, session VWAP and ADX 14.</p>

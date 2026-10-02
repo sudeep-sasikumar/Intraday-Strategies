@@ -314,10 +314,11 @@ async function openTrade(id) {
   LightweightCharts.createSeriesMarkers(cs, marks);
   cs.createPriceLine({price: t.entry, color: css('--accent'), lineStyle: 2, lineWidth: 1, title: 'Entry'});
   cs.createPriceLine({price: t.stop, color: bad, lineStyle: 2, lineWidth: 1, title: 'Stop'});
-  c.panes.forEach((p, i) => p.lines.forEach((l) => {
-    const s = chart.addSeries(LightweightCharts.LineSeries, {color: l.color, lineWidth: 2, priceLineVisible: false, lastValueVisible: false}, i + 1);
+  let lower = 0;
+  c.panes.forEach((p) => { const pane = p.overlay ? 0 : ++lower; p.lines.forEach((l) => {     // overlay = on the price chart
+    const s = chart.addSeries(LightweightCharts.LineSeries, {color: l.color, lineWidth: p.overlay ? 1 : 2, priceLineVisible: false, lastValueVisible: false}, pane);
     s.setData(l.data.filter((x) => x[1] != null).map(([time, value]) => ({time, value})));
-  }));
+  }); });
   chart.timeScale().fitContent();
 }
 

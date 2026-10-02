@@ -52,6 +52,19 @@ Same pattern as the Ignition & Coil scanner: pushing to GitHub builds a Docker i
 
 To update later: push to GitHub, wait for the action, press **Redeploy** in Docker Manager. Data and past runs survive (they live in a Docker volume).
 
+## Paper trading (live signals, no orders)
+
+1. On a strategy's **Settings** tab, load the values you want (for example the **Improved C** preset) and run a backtest to check them.
+2. On its **Signals** tab press **Start paper trading**. The scanner then works by itself during market hours (09:15-15:30, Monday-Friday):
+   - before the first scan of the day it tops up the candle history (about 10 minutes);
+   - every 15 minutes it checks all 500 stocks for new signals; every 5 minutes it checks the open paper trades for exits;
+   - each signal and each exit is recorded on the Signals tab and, if Telegram is set up, sent to your phone.
+3. The Signals tab shows, for every paper trade, the live price when the alert was raised next to the entry price the backtest assumes. The difference is your real-world slippage.
+
+It never places an order. It needs 15-minute (or longer) candles, because Upstox limits how often 500 stocks can be checked. The portal must be running for it to work, so use the VPS for real paper trading; on this PC it only runs while `run.bat` is open.
+
+`python research/replay_check.py <run id> 12` replays past days through the scanner and compares its paper trades with a stored backtest run.
+
 ## How a backtest fills trades (on the cautious side)
 
 - A setup is only known when its candle closes. The entry must trigger in the very next candle (setting: *Entry valid for*).

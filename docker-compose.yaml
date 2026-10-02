@@ -9,6 +9,7 @@
 #
 # Environment variables to enter in Docker Manager:
 #   PORTAL_PASSWORD   required - the portal login, pick a long one
+#   TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID   optional - paper-trade signals on Telegram (same bot as the scanner works)
 #   DOMAIN            required - a DNS name pointing at this VPS that is NOT the one the scanner
 #                     uses, e.g. strategies.yourdomain.com
 services:
@@ -19,6 +20,8 @@ services:
     environment:
       PORTAL_PASSWORD: ${PORTAL_PASSWORD:-}
       PORTAL_COOKIE_SECURE: "true"        # the login cookie is only sent over HTTPS
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}   # optional: paper-trade signals to your phone
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
     volumes:
       - portal_data:/app/var              # candles, database (runs, trades, settings), logs
     expose:

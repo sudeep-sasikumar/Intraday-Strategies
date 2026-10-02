@@ -10,6 +10,7 @@ import math
 import os
 import subprocess
 import sys
+import threading
 import time
 
 import numpy as np
@@ -18,7 +19,7 @@ from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from cli import clean_params
-from common import backtest, data, store, universe
+from common import backtest, data, live, store, universe
 from common.paths import IST_OFFSET_S, ROOT, VAR
 from common.strategy import discover
 from portal import auth
@@ -51,6 +52,8 @@ def create_app(bind_host: str = "127.0.0.1") -> FastAPI:
     secure_cookie = os.environ.get("PORTAL_COOKIE_SECURE", "").lower() in ("1", "true", "yes")
     if need_login and not password:
         raise SystemExit("PORTAL_PASSWORD must be set when the portal is reachable beyond this computer.")
+    if os.environ.get("LIVE_SCAN", "1") != "0":          # the paper-trading scanner; idle until switched on in the portal
+        threading.Thread(target=lambda: asyncio.run(live.run_forever()), daemon=True, name="paper-scanner").start()
 
     @app.middleware("http")
     async def guard(request: Request, call_next):
@@ -161,6 +164,43 @@ def create_app(bind_host: str = "127.0.0.1") -> FastAPI:
         if not j:
             raise HTTPException(404, "Unknown job")
         return _public_job(j)
+
+    # ------------------------------------------------------------ paper trading
+    @app.get("/api/strategy/{sid}/paper")
+    def paper(sid: str):
+        s = strat(sid)
+        cfg = store.live_get(sid)
+        trades = store.paper_list(sid)
+        closed = [t for t in trades if t["status"] == "CLOSED"]
+        wins = [t["net"] for t in closed if t["net"] > 0]
+        losses = [t["net"] for t in closed if t["net"] <= 0]
+        stats = {"n": len(closed), "net": round(sum(t["net"] for t in closed), 2),
+                 "win_rate": len(wins) / len(closed) if closed else None,
+                 "avg_win": sum(wins) / len(wins) if wins else None, "avg_loss": sum(losses) / len(losses) if losses else None,
+                 "pf": (sum(wins) / -sum(losses)) if losses and sum(losses) < 0 else None}
+        p = {**backtest.engine_defaults(), **s.defaults(), **((cfg or {}).get("params") or clean_params(s, store.get_settings(sid)))}
+        changed = {k: v for k, v in p.items() if {**backtest.engine_defaults(), **s.defaults()}.get(k) != v}
+        return {"config": cfg, "trades": trades, "stats": stats, "would_use": changed, "candle_min": backtest.timeframe(s, p),
+                "market_open": live.market_open(int(time.time())),
+                "telegram": bool(os.environ.get("TELEGRAM_BOT_TOKEN") and os.environ.get("TELEGRAM_CHAT_ID"))}
+
+    @app.post("/api/strategy/{sid}/paper/start")
+    def paper_start(sid: str):
+        s = strat(sid)
+        params = clean_params(s, store.get_settings(sid))
+        p = {**backtest.engine_defaults(), **s.defaults(), **params}
+        if backtest.timeframe(s, p) < 15:
+            raise HTTPException(400, "Paper trading needs 15-minute candles: checking 500 stocks every 5 minutes is more than Upstox allows.")
+        store.live_set(sid, True, params)
+        store.live_note(sid, "Switched on. The first scan runs at the next 15-minute mark during market hours.", scanned=False)
+        return {"ok": True}
+
+    @app.post("/api/strategy/{sid}/paper/stop")
+    def paper_stop(sid: str):
+        strat(sid)
+        store.live_set(sid, False)
+        store.live_note(sid, "Switched off. Open paper trades are no longer followed.", scanned=False)
+        return {"ok": True}
 
     # ------------------------------------------------------------ runs
     @app.get("/api/run/{run_id}")

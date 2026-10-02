@@ -113,7 +113,7 @@ async function viewStrategy(r) {
   if (runId && r.sub !== 'settings' && r.sub !== 'signals') {
     sum = state.summary[runId] || (state.summary[runId] = await api(`/api/run/${runId}`));
   }
-  ({overview: subOverview, backtest: subBacktest, trades: subTrades, stocks: subStocks, signals: subSignals,
+  await ({overview: subOverview, backtest: subBacktest, trades: subTrades, stocks: subStocks, signals: subSignals,
     settings: subSettings})[r.sub](box, d, sum);
 }
 
@@ -349,9 +349,47 @@ function subStocks(box, d, sum) {
   };
 }
 
-function subSignals(box) {
-  box.innerHTML = `<div class="card empty"><h3>Live signals are not switched on yet</h3>
-    <p>This tab will list setups as they form during market hours (checked every 15 minutes) and send them to Telegram. It gets built only if the backtest shows the strategy is worth trading.</p></div>`;
+async function subSignals(box, d) {
+  clearInterval(state.timer);
+  const r = await api(`/api/strategy/${d.id}/paper`);
+  const c = r.config, on = c && c.enabled;
+  const using = Object.entries((on ? c.params : r.would_use) || {}).map(([k, v]) => `${esc(k)} = ${esc(v)}`).join(' · ') || 'the default settings';
+  const open = r.trades.filter((t) => t.status === 'PENDING' || t.status === 'OPEN');
+  const done = r.trades.filter((t) => t.status === 'CLOSED' || t.status === 'CANCELLED');
+  const st = r.stats;
+  const price = (x) => x == null ? '–' : nf2.format(x);
+  const rowHtml = (t) => `<tr><td>${fmtDate(t.setup_t)}</td><td><b>${esc(t.symbol)}</b></td>
+    <td><span class="pill ${t.side === 'SHORT' ? 'short' : ''}">${t.side === 'LONG' ? 'Buy' : 'Sell'}</span></td>
+    <td>${t.alert_t ? fmtTime(t.alert_t) : '–'}</td><td class="num">${price(t.signal_price)}</td><td class="num">${price(t.alert_price)}</td>
+    <td class="num">${price(t.entry)}</td><td class="num">${price(t.stop)}</td>
+    <td>${t.status === 'CLOSED' ? fmtTime(t.exit_t) : esc(t.status === 'PENDING' ? 'Waiting for entry candle' : t.status === 'OPEN' ? 'Open' : 'Cancelled')}</td>
+    <td class="num">${price(t.exit)}</td><td>${esc(t.reason || '')}</td><td class="num">${t.net == null ? '–' : signed(t.net)}</td></tr>`;
+  const table = (rows, empty) => `<div class="scroll" style="margin-top:10px"><table><thead><tr><th>Date</th><th>Stock</th><th>Side</th><th>Alert</th>
+    <th class="num">Signal close</th><th class="num">Price at alert</th><th class="num">Entry</th><th class="num">Stop</th><th>Out</th>
+    <th class="num">Exit</th><th>Exit reason</th><th class="num">Net ₹</th></tr></thead>
+    <tbody>${rows.map(rowHtml).join('') || `<tr><td colspan="12" class="muted">${empty}</td></tr>`}</tbody></table></div>`;
+  box.innerHTML = `<div class="card verdict ${on ? 'good' : ''}"><div class="row" style="justify-content:space-between">
+      <div><b>Paper trading is ${on ? 'ON' : 'OFF'}</b>
+        <div class="muted">${on ? `Since ${fmtDate(c.started)}. ${c.last_scan ? `Last scan ${fmtDate(c.last_scan)} ${fmtTime(c.last_scan)}. ` : ''}${esc(c.message || '')}`
+          : 'No orders are ever placed. Signals are recorded here' + (r.telegram ? ' and sent to Telegram.' : '; Telegram is not set up, so they are not sent to your phone.')}</div>
+        <div class="muted" style="margin-top:4px">${on ? 'Running with' : 'Would start with the current Settings'}: ${using}</div>
+        <div class="muted" style="margin-top:4px">${r.market_open ? 'Market is open.' : 'Market is closed; scanning resumes at the next session.'} ${r.candle_min < 15 ? 'Needs 15-minute candles (load the Improved C preset on the Settings tab).' : ''}</div></div>
+      <button class="${on ? 'ghost' : 'primary'}" id="paper-btn">${on ? 'Stop' : 'Start paper trading'}</button></div></div>
+    <div class="grid">
+      ${stat('Closed paper trades', nf0.format(st.n), 'Since paper trading was first switched on')}
+      ${stat('Win rate', st.win_rate == null ? '–' : pct(st.win_rate), 'After costs')}
+      ${stat('Net result', signed(st.net), 'All closed paper trades, after costs')}
+      ${stat('Profit factor', st.pf == null ? '–' : st.pf.toFixed(2), 'Money won ÷ money lost')}</div>
+    <div class="card"><h3>Open now</h3>${table(open, 'No open paper trades.')}</div>
+    <div class="card"><h3>History</h3><div class="muted">“Price at alert” is the live price when the signal was detected; “Entry” is what the backtest assumes (the next candle's open). The gap between them is your real-world slippage.</div>
+      ${table(done, 'No closed paper trades yet.')}</div>`;
+  $('#paper-btn').onclick = async () => {
+    try {
+      await api(`/api/strategy/${d.id}/paper/${on ? 'stop' : 'start'}`, {method: 'POST', body: {}});
+      toast(on ? 'Paper trading stopped.' : 'Paper trading started.'); render();
+    } catch (e) { toast(e.message); }
+  };
+  state.timer = setInterval(() => { if (route()?.sub === 'signals' && $('#modal').hidden) subSignals(box, d).catch(() => {}); }, 60000);
 }
 
 function fieldHtml(p) {

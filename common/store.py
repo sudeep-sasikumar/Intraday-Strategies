@@ -34,6 +34,22 @@ CREATE TABLE IF NOT EXISTS trades (
 );
 CREATE INDEX IF NOT EXISTS trades_run ON trades(run_id, entry_t);
 CREATE TABLE IF NOT EXISTS settings (strategy TEXT PRIMARY KEY, params TEXT);
+-- paper trading: which strategies are switched on (with the settings they were started with) ...
+CREATE TABLE IF NOT EXISTS live_config (
+    strategy TEXT PRIMARY KEY, enabled INTEGER NOT NULL, params TEXT, started INTEGER,
+    last_scan INTEGER, message TEXT DEFAULT ''
+);
+-- ... and the paper trades themselves
+CREATE TABLE IF NOT EXISTS paper_trades (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    strategy TEXT NOT NULL, symbol TEXT NOT NULL, side TEXT NOT NULL,
+    setup_t INTEGER NOT NULL,        -- start of the candle that gave the signal
+    status TEXT NOT NULL,            -- PENDING (signal sent, entry candle not finished), OPEN, CLOSED, CANCELLED
+    alert_t INTEGER, alert_price REAL, signal_price REAL, stop REAL, priority REAL,
+    entry_t INTEGER, entry REAL, exit_t INTEGER, exit REAL, reason TEXT, qty INTEGER,
+    gross REAL, costs REAL, net REAL, r REAL,
+    UNIQUE(strategy, symbol, setup_t)
+);
 """
 
 
@@ -185,3 +201,63 @@ def save_settings(strategy: str, params: dict) -> None:
     with connect() as con:
         con.execute("INSERT INTO settings(strategy, params) VALUES(?,?) ON CONFLICT(strategy) DO UPDATE SET params=excluded.params",
                     (strategy, json.dumps(params)))
+
+
+# ---------------------------------------------------------------- paper trading
+
+PAPER_COLS = ["strategy", "symbol", "side", "setup_t", "status", "alert_t", "alert_price", "signal_price", "stop", "priority",
+              "entry_t", "entry", "exit_t", "exit", "reason", "qty", "gross", "costs", "net", "r"]
+
+
+def live_get(strategy: str) -> dict | None:
+    with connect() as con:
+        r = con.execute("SELECT * FROM live_config WHERE strategy=?", (strategy,)).fetchone()
+    if not r:
+        return None
+    d = dict(r)
+    d["params"] = json.loads(d["params"]) if d.get("params") else {}
+    return d
+
+
+def live_enabled() -> list[dict]:
+    with connect() as con:
+        rows = con.execute("SELECT strategy FROM live_config WHERE enabled=1").fetchall()
+    return [live_get(r["strategy"]) for r in rows]
+
+
+def live_set(strategy: str, enabled: bool, params: dict | None = None) -> None:
+    with connect() as con:
+        if params is None:
+            con.execute("UPDATE live_config SET enabled=? WHERE strategy=?", (int(enabled), strategy))
+        else:
+            con.execute("INSERT INTO live_config(strategy, enabled, params, started) VALUES(?,?,?,?) ON CONFLICT(strategy) DO UPDATE "
+                        "SET enabled=excluded.enabled, params=excluded.params, started=excluded.started",
+                        (strategy, int(enabled), json.dumps(params), int(time.time())))
+
+
+def live_note(strategy: str, message: str, scanned: bool = True) -> None:
+    with connect() as con:
+        if scanned:
+            con.execute("UPDATE live_config SET last_scan=?, message=? WHERE strategy=?", (int(time.time()), message[:300], strategy))
+        else:
+            con.execute("UPDATE live_config SET message=? WHERE strategy=?", (message[:300], strategy))
+
+
+def paper_upsert(t: dict) -> int:
+    """Insert a paper trade, or update the one with the same strategy / symbol / signal candle."""
+    cols = [c for c in PAPER_COLS if c in t]
+    sets = ", ".join(f"{c}=excluded.{c}" for c in cols if c not in ("strategy", "symbol", "setup_t"))
+    with connect() as con:
+        con.execute(f"INSERT INTO paper_trades({', '.join(cols)}) VALUES({','.join('?' * len(cols))}) "
+                    f"ON CONFLICT(strategy, symbol, setup_t) DO UPDATE SET {sets}", [t[c] for c in cols])
+        return int(con.execute("SELECT id FROM paper_trades WHERE strategy=? AND symbol=? AND setup_t=?",
+                               (t["strategy"], t["symbol"], t["setup_t"])).fetchone()[0])
+
+
+def paper_list(strategy: str, status: tuple[str, ...] | None = None, limit: int = 500) -> list[dict]:
+    q, args = "SELECT * FROM paper_trades WHERE strategy=?", [strategy]
+    if status:
+        q += f" AND status IN ({','.join('?' * len(status))})"
+        args += list(status)
+    with connect() as con:
+        return [dict(r) for r in con.execute(q + " ORDER BY setup_t DESC, id DESC LIMIT ?", (*args, limit))]

@@ -50,6 +50,7 @@ params:
     type: bool
     help: The video's exit. Switch off to hold until the stop, the target or the 15:15 square-off.
   - key: min_stretch_pct
+    filter: true
     label: Only stretched stocks (%, 0 = off)
     value: 0
     type: float
@@ -57,6 +58,7 @@ params:
     max: 50
     help: Buy only if yesterday's close was at least this % below the stock's 20-day average (sell only if that much above).
   - key: max_price
+    filter: true
     label: Only shares priced under (₹, 0 = off)
     value: 0
     type: float

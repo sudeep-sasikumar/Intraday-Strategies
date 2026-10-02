@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from common.indicators import dmi, ema, session_vwap
+from common.indicators import atr, dmi, ema, prev_close_vs_sma20, prev_day_di_spread, session_vwap
 from common.strategy import Signals
 
 EXIT_CROSS = 1
@@ -51,6 +51,17 @@ def signals(bars, p: dict) -> Signals:
     with np.errstate(invalid="ignore"):
         long_ok = from_cross & up & strong & (c > vwap * (1 + gap)) & (c > fast)
         short_ok = from_cross & down & strong & (c < vwap * (1 - gap)) & (c < fast)
+    side = np.where(up, 1.0, -1.0)
+    extra = np.ones(n, dtype=bool)
+    with np.errstate(invalid="ignore"):
+        if float(p.get("max_price", 0) or 0) > 0:               # only cheaper shares
+            extra &= c < float(p["max_price"])
+        if float(p.get("min_stretch_pct", 0) or 0) > 0:         # stock stretched against its 20-day average
+            extra &= prev_close_vs_sma20(c, bars.day) * side <= -float(p["min_stretch_pct"])
+        if float(p.get("min_daily_di_against", 0) or 0) > 0:    # yesterday's daily DI spread against the trade
+            extra &= prev_day_di_spread(bars.h, bars.l, c, bars.day) * side <= -float(p["min_daily_di_against"])
+    long_ok &= extra
+    short_ok &= extra
     passed = long_ok | short_ok
     # only the first passing candle of each regime
     seen = np.cumsum(passed)
@@ -67,7 +78,10 @@ def signals(bars, p: dict) -> Signals:
         exit_long[down] = EXIT_CROSS
         exit_short[up] = EXIT_CROSS
 
-    return Signals(setup=setup, entry=c.copy(), stop=slow.copy(), exit_long=exit_long, exit_short=exit_short,
+    stop = slow.copy()
+    if p.get("stop_rule", "ema") == "atr":                      # a fixed distance instead of the slow EMA
+        stop = c - setup * float(p.get("stop_atr_mult", 3.0)) * atr(bars.h, bars.l, c, 14)
+    return Signals(setup=setup, entry=c.copy(), stop=stop, exit_long=exit_long, exit_short=exit_short,
                    exit_labels=EXIT_LABELS, market_entry=True, target_r=float(p.get("target_r", 2) or 0))
 
 

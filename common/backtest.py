@@ -25,7 +25,7 @@ from common.data import Bars
 from common.strategy import Signals, Strategy
 
 DAY_S = 86_400
-WARMUP_DAYS = 45       # extra history before the start so indicators have settled
+WARMUP_DAYS = 90       # extra history before the start so indicators (incl. daily ones) have settled
 
 # Settings every strategy shares (shown under "Trading and costs" on the Settings tab).
 ENGINE_PARAMS: list[dict] = [
@@ -55,6 +55,9 @@ ENGINE_PARAMS: list[dict] = [
     {"key": "min_same_signals", "label": "Market-wide burst: at least N stocks (0 = off)", "value": 0, "type": "int",
      "min": 0, "max": 500, "group": "Market filter and limits",
      "help": "Take a setup only if at least this many stocks show a setup in the same direction in the same candle."},
+    {"key": "min_net_signals", "label": "Market-wide burst: N more stocks one way than the other (0 = off)", "value": 0,
+     "type": "int", "min": 0, "max": 500, "group": "Market filter and limits",
+     "help": "Take a setup only if, in that candle, setups in its direction outnumber opposite setups by at least this many."},
     {"key": "max_breadth_pct", "label": "Skip if the market has already moved (%, 100 = off)", "value": 100,
      "type": "float", "min": 0, "max": 100, "group": "Market filter and limits",
      "help": "Skip a buy if more than this % of stocks are already above their day's open (for a sell: below it)."},
@@ -201,16 +204,23 @@ def simulate(symbol: str, b5: Bars, b15: Bars, sig: Signals, p: dict, tf_min: in
     return trades
 
 
+def timeframe(strategy: Strategy, p: dict) -> int:
+    """Candle size in minutes: the strategy's own, unless its settings offer a choice."""
+    return int(p.get("candle_min") or strategy.timeframe_min)
+
+
 def market_context(strategy: Strategy, p: dict, symbols: list[str], start_ts: int, end_ts: int,
                    progress: Callable[[int, int, str], None] | None = None) -> dict:
     """What the whole market was doing at each candle close: how many stocks showed a buy / sell
     setup in that candle, and what share of stocks were above their day's open. Known at the close."""
+    # count the strategy's plain setups: its own optional filters (marked `filter: true`) are switched off here
+    base = {**p, **{q["key"]: q["value"] for q in strategy.params if q.get("filter")}}
     longs, shorts, all_t, up_t = [], [], [], []
     for k, sym in enumerate(symbols, 1):
         b5 = data.load(sym, start_ts - WARMUP_DAYS * DAY_S, end_ts)
         if len(b5) >= 500:
-            b = data.aggregate(b5, strategy.timeframe_min)
-            sig = strategy.signals(b, p)
+            b = data.aggregate(b5, timeframe(strategy, p))
+            sig = strategy.signals(b, base)
             longs.append(b.t[sig.setup > 0])
             shorts.append(b.t[sig.setup < 0])
             day_open = pd.Series(b.o).groupby(b.day).transform("first").to_numpy()
@@ -234,12 +244,14 @@ def _lookup(table: tuple[np.ndarray, np.ndarray], t: np.ndarray) -> np.ndarray:
 
 def apply_market_filter(sig: Signals, t: np.ndarray, ctx: dict, p: dict) -> None:
     """Drop setups that fail the market-wide conditions (edits sig.setup in place)."""
-    need, cap = int(p["min_same_signals"]), float(p["max_breadth_pct"])
-    same = np.where(sig.setup > 0, _lookup(ctx["long"], t), _lookup(ctx["short"], t))
+    need, cap, net_need = int(p["min_same_signals"]), float(p["max_breadth_pct"]), int(p.get("min_net_signals", 0))
+    n_long, n_short = _lookup(ctx["long"], t), _lookup(ctx["short"], t)
+    same = np.where(sig.setup > 0, n_long, n_short)
+    net = np.where(sig.setup > 0, n_long - n_short, n_short - n_long)
     with np.errstate(invalid="ignore", divide="ignore"):
         up = _lookup(ctx["up"], t) / _lookup(ctx["all"], t) * 100.0
     with_trade = np.where(sig.setup > 0, up, 100.0 - up)
-    sig.setup[(same < need) | (with_trade > cap)] = 0
+    sig.setup[(same < need) | (net < net_need) | (with_trade > cap)] = 0
 
 
 def limit_open(rows: list[dict], turnover: dict[str, float], max_open: int) -> list[dict]:
@@ -276,7 +288,8 @@ def run(strategy: Strategy, params: dict, symbols: list[str],
         return pd.DataFrame(), {"error": "No candles downloaded yet. Use the Data tab first."}
     start_ts = end_ts - int(float(p["years"]) * 365.25 * DAY_S)
 
-    use_ctx = int(p["min_same_signals"]) > 0 or float(p["max_breadth_pct"]) < 100
+    tf = timeframe(strategy, p)
+    use_ctx = int(p["min_same_signals"]) > 0 or int(p["min_net_signals"]) > 0 or float(p["max_breadth_pct"]) < 100
     ctx = market_context(strategy, p, symbols, start_ts, end_ts, progress) if use_ctx else None
     step = (lambda k, n, sym: progress(n + k, 2 * n, sym)) if (progress and use_ctx) else progress
 
@@ -286,11 +299,11 @@ def run(strategy: Strategy, params: dict, symbols: list[str],
     for k, sym in enumerate(symbols, 1):
         b5 = data.load(sym, start_ts - WARMUP_DAYS * DAY_S, end_ts)
         if len(b5) >= 500:
-            b15 = data.aggregate(b5, strategy.timeframe_min)
+            b15 = data.aggregate(b5, tf)
             sig = strategy.signals(b15, p)
             if ctx is not None:
                 apply_market_filter(sig, b15.t, ctx, p)
-            rows += simulate(sym, b5, b15, sig, p, strategy.timeframe_min, start_ts)
+            rows += simulate(sym, b5, b15, sig, p, tf, start_ts)
             daily = pd.Series(b5.c * b5.v).groupby(b5.day).sum()
             turnover[sym] = float(daily.median())
             tested += 1

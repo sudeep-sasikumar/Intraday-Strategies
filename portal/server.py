@@ -191,7 +191,8 @@ def create_app(bind_host: str = "127.0.0.1") -> FastAPI:
         s = strat(run["strategy"])
         p = {**backtest.engine_defaults(), **s.defaults(), **(run["params"] or {})}
         b5 = data.load(t["symbol"], t["entry_t"] - backtest.WARMUP_DAYS * DAY_S, t["exit_t"] + 2 * DAY_S)
-        bars = data.aggregate(b5, s.timeframe_min)
+        tf = backtest.timeframe(s, p)
+        bars = data.aggregate(b5, tf)
         if len(bars) == 0:
             raise HTTPException(404, "Candles for this stock are no longer in the cache")
         days = np.unique(bars.day)
@@ -207,7 +208,7 @@ def create_app(bind_host: str = "127.0.0.1") -> FastAPI:
         candles = [[tt, o, h, l, c] for tt, o, h, l, c in zip(ist, bars.o[keep].tolist(), bars.h[keep].tolist(),
                                                              bars.l[keep].tolist(), bars.c[keep].tolist())]
         shift = {k: t[k] + IST_OFFSET_S for k in ("setup_t", "entry_t", "exit_t")}
-        return {"trade": {**t, **shift}, "timeframe_min": s.timeframe_min, "candles": candles, "panes": panes}
+        return {"trade": {**t, **shift}, "timeframe_min": tf, "candles": candles, "panes": panes}
 
     # ------------------------------------------------------------ data
     @app.get("/api/data")

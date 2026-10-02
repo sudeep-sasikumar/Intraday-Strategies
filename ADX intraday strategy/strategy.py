@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from common.indicators import atr, dmi
+from common.indicators import atr, dmi, prev_close_vs_sma20
 from common.strategy import Signals
 
 EXIT_ADX_ABOVE, EXIT_DI_SWAP = 1, 2
@@ -37,16 +37,7 @@ def zone(plus: np.ndarray, minus: np.ndarray, adx: np.ndarray) -> np.ndarray:
 
 
 def _vs_sma20(bars) -> np.ndarray:
-    """Yesterday's close versus the average of the last 20 daily closes (up to yesterday), in %.
-    One value per candle; NaN until 20 days of history exist."""
-    days, first = np.unique(bars.day, return_index=True)
-    close = bars.c[np.r_[first[1:], len(bars.c)] - 1]            # each day's last close
-    out = np.full(len(days), np.nan)
-    if len(days) > 20:
-        c = np.cumsum(np.r_[0.0, close])
-        sma = (c[20:] - c[:-20]) / 20                            # sma[k] = average of days k..k+19
-        out[20:] = (close[19:-1] / sma[:-1] - 1) * 100           # day d uses days d-20..d-1
-    return out[np.searchsorted(days, bars.day)]
+    return prev_close_vs_sma20(bars.c, bars.day)
 
 
 def signals(bars, p: dict) -> Signals:

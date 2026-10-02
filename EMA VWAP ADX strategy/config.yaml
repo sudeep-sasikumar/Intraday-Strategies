@@ -57,3 +57,46 @@ params:
     value: true
     type: bool
     help: Not stated in the video; my assumption. Off = a crossover from an earlier day can still be confirmed today.
+  - key: candle_min
+    label: Candle size (minutes)
+    value: "5"
+    type: choice
+    choices: ["5", "15"]
+    help: The video uses 5. On 15-minute candles there are about a third as many trades and each move is bigger.
+  - key: stop_rule
+    label: Stop loss rule
+    value: ema
+    type: choice
+    choices: [ema, atr]
+    help: ema = the slow EMA on the confirmation candle (the video's rule). atr = a multiple of the average candle range (ATR 14).
+  - key: stop_atr_mult
+    label: Stop distance (x ATR)
+    value: 3.0
+    type: float
+    min: 0.25
+    max: 100
+    help: Only used when the stop rule is atr.
+  - key: min_stretch_pct
+    filter: true
+    label: Only stretched stocks (%, 0 = off)
+    value: 0
+    type: float
+    min: 0
+    max: 50
+    help: Buy only if yesterday's close was at least this % below the stock's 20-day average (sell only if that much above).
+  - key: min_daily_di_against
+    filter: true
+    label: Daily trend against the trade (DI gap, 0 = off)
+    value: 0
+    type: float
+    min: 0
+    max: 100
+    help: Buy only if yesterday's daily DI- was above DI+ by at least this much (sell - the reverse). A reversal filter.
+  - key: max_price
+    filter: true
+    label: Only shares priced under (₹, 0 = off)
+    value: 0
+    type: float
+    min: 0
+    max: 1000000
+    help: Skip setups in shares at or above this price.

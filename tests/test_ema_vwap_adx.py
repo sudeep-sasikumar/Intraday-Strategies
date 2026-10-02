@@ -156,3 +156,28 @@ def test_market_short_mirror():
     set_bar(b5, 7, 99, 99, 94.5, 95)
     t = run5(b5, market_sig(b5, 3, -1, 101.0))
     assert (t[0]["side"], t[0]["entry"], t[0]["exit"], t[0]["reason"]) == ("SHORT", 99.0, 95.0, "Target")
+
+
+def test_daily_context_uses_only_earlier_days(cgpower):
+    from common.indicators import dmi, prev_close_vs_sma20, prev_day_di_spread
+    days = np.unique(cgpower.day)
+    d = 30
+    today = cgpower.day == days[d]
+    hi = np.array([cgpower.h[cgpower.day == x].max() for x in days[:d]])
+    lo = np.array([cgpower.l[cgpower.day == x].min() for x in days[:d]])
+    cl = np.array([cgpower.c[cgpower.day == x][-1] for x in days[:d]])
+    plus, minus, _ = dmi(hi, lo, cl)
+    assert np.allclose(prev_day_di_spread(cgpower.h, cgpower.l, cgpower.c, cgpower.day)[today], plus[-1] - minus[-1])
+    assert np.allclose(prev_close_vs_sma20(cgpower.c, cgpower.day)[today], (cl[-1] / cl[-20:].mean() - 1) * 100)
+
+
+def test_filters_only_remove_setups_and_atr_stop_is_on_the_right_side(strat, cgpower):
+    base = strat.signals(cgpower, P)
+    alt = strat.signals(cgpower, {**P, "stop_rule": "atr", "stop_atr_mult": 3.0})
+    m = base.setup != 0
+    assert np.array_equal(base.setup, alt.setup) and ((cgpower.c[m] - alt.stop[m]) * base.setup[m] > 0).all()
+    assert not strat.signals(cgpower, {**P, "max_price": 1.0}).setup.any()
+    st = strat.signals(cgpower, {**P, "min_stretch_pct": 2.0}).setup
+    from common.indicators import prev_close_vs_sma20
+    v = prev_close_vs_sma20(cgpower.c, cgpower.day)
+    assert (v[st > 0] <= -2.0).all() and (v[st < 0] >= 2.0).all()

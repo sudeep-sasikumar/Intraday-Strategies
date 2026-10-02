@@ -250,7 +250,10 @@ def limit_open(rows: list[dict], turnover: dict[str, float], max_open: int) -> l
     for r in rows:
         open_until = [x for x in open_until if x > r["entry_t"]]
         if len(open_until) < max_open:
-            open_until.append(r["exit_t"])
+            # a stop or target is hit somewhere inside its 5-minute candle, so the slot stays busy
+            # until that candle ends (otherwise a trade stopped in its entry candle would take no slot)
+            intrabar = r.get("reason") in ("Stop loss", "Target", "Day end")
+            open_until.append(r["exit_t"] + (300 if intrabar else 0))
             kept.append(r)
     return kept
 

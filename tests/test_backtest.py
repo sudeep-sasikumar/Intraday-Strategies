@@ -155,3 +155,10 @@ def test_market_filter_needs_enough_stocks_and_room_to_move():
     # 10: 20 buys, 60% up -> keep. 20: only 5 buys -> drop. 30: 18 sells, 70% already down -> keep.
     # 40: 30 buys but 90% already up -> drop.
     assert sig.setup.tolist() == [1, 0, -1, 0]
+
+
+def test_a_trade_stopped_in_its_entry_candle_still_uses_a_slot():
+    rows = [{"symbol": s, "entry_t": 300, "exit_t": 300, "reason": "Stop loss"} for s in "ABCD"]
+    rows.append({"symbol": "E", "entry_t": 600, "exit_t": 900, "reason": "Square-off"})
+    kept = backtest.limit_open(rows, {}, 2)
+    assert [r["symbol"] for r in kept] == ["A", "B", "E"]       # only two of the four at 300; free again by 600

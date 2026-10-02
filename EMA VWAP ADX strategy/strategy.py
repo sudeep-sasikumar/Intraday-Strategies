@@ -13,11 +13,16 @@ from __future__ import annotations
 
 import numpy as np
 
-from common.indicators import atr, dmi, ema, prev_close_vs_sma20, prev_day_di_spread, session_vwap
+from common.indicators import atr, dmi, ema, prev_close_vs_sma20, prev_day_di_spread, rel_cum_volume, session_vwap
 from common.strategy import Signals
 
 EXIT_CROSS = 1
 EXIT_LABELS = {EXIT_CROSS: "Opposite crossover"}
+
+
+def _hhmm(s) -> int:
+    h, m = str(s or "00:00").split(":")
+    return int(h) * 60 + int(m)
 
 
 def lines(bars, p: dict) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
@@ -60,6 +65,16 @@ def signals(bars, p: dict) -> Signals:
             extra &= prev_close_vs_sma20(c, bars.day) * side <= -float(p["min_stretch_pct"])
         if float(p.get("min_daily_di_against", 0) or 0) > 0:    # yesterday's daily DI spread against the trade
             extra &= prev_day_di_spread(bars.h, bars.l, c, bars.day) * side <= -float(p["min_daily_di_against"])
+    rel_vol = None
+    if p.get("rank_by") == "volume" or float(p.get("min_rel_volume", 0) or 0) > 0:
+        rel_vol = rel_cum_volume(bars.v, bars.day, bars.minute)
+        if float(p.get("min_rel_volume", 0) or 0) > 0:          # volume so far today at least this multiple of normal
+            with np.errstate(invalid="ignore"):
+                extra &= rel_vol >= float(p["min_rel_volume"])
+    lo, hi = _hhmm(p.get("skip_from", "00:00")), _hhmm(p.get("skip_to", "00:00"))
+    if hi > lo:                                                 # no entries in this window (entry = the next candle)
+        entry_min = bars.minute + int(p.get("candle_min") or 5)
+        extra &= ~((entry_min >= lo) & (entry_min < hi))
     long_ok &= extra
     short_ok &= extra
     passed = long_ok | short_ok
@@ -82,7 +97,8 @@ def signals(bars, p: dict) -> Signals:
     if p.get("stop_rule", "ema") == "atr":                      # a fixed distance instead of the slow EMA
         stop = c - setup * float(p.get("stop_atr_mult", 3.0)) * atr(bars.h, bars.l, c, 14)
     return Signals(setup=setup, entry=c.copy(), stop=stop, exit_long=exit_long, exit_short=exit_short,
-                   exit_labels=EXIT_LABELS, market_entry=True, target_r=float(p.get("target_r", 2) or 0))
+                   exit_labels=EXIT_LABELS, market_entry=True, target_r=float(p.get("target_r", 2) or 0),
+                   priority=rel_vol if p.get("rank_by") == "volume" else None)
 
 
 def indicators(bars, p: dict) -> list[dict]:

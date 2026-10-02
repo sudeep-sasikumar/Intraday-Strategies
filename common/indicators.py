@@ -86,6 +86,17 @@ def prev_day_di_spread(h: np.ndarray, l: np.ndarray, c: np.ndarray, day: np.ndar
     return spread[pos]
 
 
+def rel_cum_volume(v: np.ndarray, day: np.ndarray, minute: np.ndarray, sessions: int = 10) -> np.ndarray:
+    """Today's volume so far divided by the average volume-so-far at the same time of day over the
+    previous `sessions` sessions (at least 5 needed). 1.0 = a normal day; 2.0 = twice the usual."""
+    import pandas as pd
+    cum = pd.Series(v).groupby(day).cumsum().to_numpy()
+    piv = pd.DataFrame({"day": day, "slot": minute, "x": cum}).pivot_table(index="day", columns="slot", values="x")
+    base = piv.rolling(sessions, min_periods=5).mean().shift(1)
+    with np.errstate(invalid="ignore", divide="ignore"):
+        return cum / base.stack(future_stack=True).reindex(pd.MultiIndex.from_arrays([day, minute])).to_numpy()
+
+
 def true_range(h: np.ndarray, l: np.ndarray, c: np.ndarray) -> np.ndarray:
     """True range; the first bar is NaN (no previous close), as in ta.tr."""
     tr = np.full(len(h), np.nan)

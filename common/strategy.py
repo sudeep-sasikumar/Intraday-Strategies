@@ -32,6 +32,7 @@ class Signals:
     target: np.ndarray | None = None   # optional profit-target price for that setup
     market_entry: bool = False         # True: enter at the next candle's open (entry[] is only a reference price)
     target_r: float = 0.0              # > 0: target = this many times the actual entry-to-stop distance
+    priority: np.ndarray | None = None  # with a limit on open trades: higher goes first among same-time entries
 
 
 @dataclass
@@ -43,6 +44,7 @@ class Strategy:
     params: list[dict]
     folder: Path
     module: object
+    presets: list[dict] = field(default_factory=list)
 
     def defaults(self) -> dict:
         return {p["key"]: p["value"] for p in self.params}
@@ -72,5 +74,5 @@ def discover() -> dict[str, Strategy]:
         mod = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(mod)
         out[cfg["id"]] = Strategy(cfg["id"], cfg["name"], cfg.get("summary", ""), int(cfg.get("timeframe_min", 15)),
-                                  cfg.get("params") or [], folder, mod)
+                                  cfg.get("params") or [], folder, mod, cfg.get("presets") or [])
     return out

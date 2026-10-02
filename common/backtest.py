@@ -51,7 +51,7 @@ ENGINE_PARAMS: list[dict] = [
      "help": "For a quick trial run. 0 tests every downloaded stock."},
     {"key": "max_open_trades", "label": "Most trades open at once (0 = no limit)", "value": 0, "type": "int", "min": 0,
      "max": 1000, "group": "Market filter and limits",
-     "help": "First come, first served. When several setups trigger in the same 5 minutes, the most-traded stock wins."},
+     "help": "First come, first served. When several setups trigger together, the strategy's ranking decides (if it has one); otherwise the most-traded stock wins."},
     {"key": "min_same_signals", "label": "Market-wide burst: at least N stocks (0 = off)", "value": 0, "type": "int",
      "min": 0, "max": 500, "group": "Market filter and limits",
      "help": "Take a setup only if at least this many stocks show a setup in the same direction in the same candle."},
@@ -200,6 +200,7 @@ def simulate(symbol: str, b5: Bars, b15: Bars, sig: Signals, p: dict, tf_min: in
             "costs": round(float(slippage + fees), 2), "net": round(float(net), 2),
             "r": round(float(net / risk), 3) if risk > 0 else 0.0,
             "pct": round(float(net / (entry * qty) * 100.0), 3),
+            "priority": float(sig.priority[i]) if sig.priority is not None and np.isfinite(sig.priority[i]) else None,
         })
     return trades
 
@@ -255,8 +256,12 @@ def apply_market_filter(sig: Signals, t: np.ndarray, ctx: dict, p: dict) -> None
 
 
 def limit_open(rows: list[dict], turnover: dict[str, float], max_open: int) -> list[dict]:
-    """Keep trades in time order while fewer than max_open are running."""
-    rows = sorted(rows, key=lambda r: (r["entry_t"], -turnover.get(r["symbol"], 0.0)))
+    """Keep trades in time order while fewer than max_open are running. Among trades that start
+    together, the strategy's priority decides if it gives one; otherwise the most-traded stock goes first."""
+    def rank(r: dict) -> float:
+        p = r.get("priority")
+        return p if p is not None else turnover.get(r["symbol"], 0.0)
+    rows = sorted(rows, key=lambda r: (r["entry_t"], -rank(r)))
     open_until: list[int] = []
     kept = []
     for r in rows:

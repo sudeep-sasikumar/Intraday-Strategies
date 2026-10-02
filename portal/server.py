@@ -134,6 +134,7 @@ def create_app(bind_host: str = "127.0.0.1") -> FastAPI:
                 + [{"title": title, "params": with_values([q for q in backtest.ENGINE_PARAMS
                                                            if q.get("group", "Trading and costs") == title])}
                    for title in ("Market filter and limits", "Trading and costs")],
+                "presets": s.presets,
                 "runs": [_public_job(j) for j in store.list_jobs("backtest", sid)],
                 "active": _public_job(store.active_job("backtest", sid))}
 

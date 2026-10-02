@@ -181,3 +181,26 @@ def test_filters_only_remove_setups_and_atr_stop_is_on_the_right_side(strat, cgp
     from common.indicators import prev_close_vs_sma20
     v = prev_close_vs_sma20(cgpower.c, cgpower.day)
     assert (v[st > 0] <= -2.0).all() and (v[st < 0] >= 2.0).all()
+
+
+def test_relative_volume_compares_with_the_same_time_on_earlier_days():
+    from common.indicators import rel_cum_volume
+    day = np.repeat(np.arange(7), 3)
+    minute = np.tile([555, 570, 585], 7)
+    v = np.tile([100.0, 100.0, 100.0], 7)
+    v[-3:] = [300.0, 100.0, 0.0]                    # last day: a heavy first candle
+    out = rel_cum_volume(v, day, minute)
+    assert np.isnan(out[:15]).all()                 # needs five earlier sessions
+    assert out[-3:].tolist() == [3.0, 2.0, 400 / 300]
+
+
+def test_no_entry_window_and_volume_priority(strat, monkeypatch):
+    close = [100, 101.0, 102.0, 103.0]
+    fake(monkeypatch, strat, [99, 100.5, 101, 102], [100, 100, 100.2, 100.5], [100, 100, 100, 100], [30, 30, 30, 30])
+    b = Bars(close)
+    b.minute = np.array([660, 665, 670, 675])       # 11:00 .. 11:15; the candle after 11:05 starts at 11:10
+    assert strat.signals(b, {**P, "candle_min": "5"}).setup.tolist() == [0, 1, 0, 0]
+    s = strat.signals(b, {**P, "candle_min": "5", "skip_from": "11:10", "skip_to": "11:20"})
+    assert s.setup.tolist() == [0, 0, 0, 1]         # 11:05 and 11:10 candles would enter inside the window; 11:15 enters at 11:20
+    assert s.priority is None
+    assert strat.signals(b, {**P, "candle_min": "5", "rank_by": "volume"}).priority is not None

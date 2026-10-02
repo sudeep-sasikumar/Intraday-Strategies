@@ -162,3 +162,10 @@ def test_a_trade_stopped_in_its_entry_candle_still_uses_a_slot():
     rows.append({"symbol": "E", "entry_t": 600, "exit_t": 900, "reason": "Square-off"})
     kept = backtest.limit_open(rows, {}, 2)
     assert [r["symbol"] for r in kept] == ["A", "B", "E"]       # only two of the four at 300; free again by 600
+
+
+def test_priority_beats_turnover_when_trades_start_together():
+    rows = [{"symbol": "A", "entry_t": 100, "exit_t": 500, "priority": 1.0}, {"symbol": "B", "entry_t": 100, "exit_t": 500, "priority": 3.0},
+            {"symbol": "C", "entry_t": 100, "exit_t": 500, "priority": 2.0}]
+    kept = backtest.limit_open(rows, {"A": 9.0, "B": 1.0, "C": 1.0}, 2)
+    assert [r["symbol"] for r in kept] == ["B", "C"]

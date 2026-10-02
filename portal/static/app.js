@@ -366,7 +366,9 @@ function fieldHtml(p) {
 }
 
 function subSettings(box, d) {
-  box.innerHTML = d.settings.map((g) => `<div class="card"><h3>${esc(g.title)}</h3>${g.params.map(fieldHtml).join('')}</div>`).join('')
+  const presets = (d.presets || []).length ? `<div class="card"><h3>Presets</h3><div class="muted">One click loads and saves a full set of values. Run a backtest afterwards.</div>
+    ${d.presets.map((p, i) => `<div class="field"><label>${esc(p.name)}</label><div><button class="ghost" data-preset="${i}">Load</button></div><div class="help">${esc(p.note || '')}</div></div>`).join('')}</div>` : '';
+  box.innerHTML = presets + d.settings.map((g) => `<div class="card"><h3>${esc(g.title)}</h3>${g.params.map(fieldHtml).join('')}</div>`).join('')
     + `<div class="row"><button class="primary" id="save">Save settings</button><button class="ghost" id="reset">Reset to defaults</button>
        <span class="muted">Saved values are used by the next backtest. Old runs keep the values they were run with.</span></div>`;
   $('#save').onclick = async () => {
@@ -378,6 +380,11 @@ function subSettings(box, d) {
     try { await api(`/api/strategy/${d.id}/settings`, {body: {params}}); toast('Saved. Run a backtest to see the effect.'); render(); }
     catch (e) { toast(e.message); }
   };
+  box.querySelectorAll('[data-preset]').forEach((b) => b.onclick = async () => {
+    const p = d.presets[+b.dataset.preset];
+    await api(`/api/strategy/${d.id}/settings`, {body: {params: p.params || {}}});
+    toast(`Loaded "${p.name}". Run a backtest to see it.`); render();
+  });
   $('#reset').onclick = async () => {
     await api(`/api/strategy/${d.id}/settings`, {body: {reset: true}}); toast('Back to defaults.'); render();
   };

@@ -100,3 +100,48 @@ params:
     min: 0
     max: 1000000
     help: Skip setups in shares at or above this price.
+  - key: min_rel_volume
+    filter: true
+    label: Minimum volume vs normal (x, 0 = off)
+    value: 0
+    type: float
+    min: 0
+    max: 50
+    help: Take a setup only if the stock's volume so far today is at least this multiple of its usual volume by that time of day.
+  - key: skip_from
+    filter: true
+    label: No entries from
+    value: "00:00"
+    type: time
+    help: Start of a no-entry window. Leave both times at 00:00 to switch it off.
+  - key: skip_to
+    filter: true
+    label: No entries until
+    value: "00:00"
+    type: time
+    help: End of the no-entry window.
+  - key: rank_by
+    label: When several stocks qualify together, take first
+    value: turnover
+    type: choice
+    choices: [turnover, volume]
+    help: turnover = the most-traded stock. volume = the stock whose volume today is highest versus its own normal.
+presets:
+  - name: Video rules
+    note: Exactly as in the video. 5-minute candles, stop at the 21 EMA, target 1:2.
+    params: {}
+  - name: Improved C
+    note: 15-minute candles, 3 ATR stop, exit on opposite crossover, only when the daily trend is against the trade and 24+ more stocks confirm together, heaviest relative volume first, no entries 11:15-13:00, two trades at a time, Rs 2,50,000 each.
+    params:
+      candle_min: "15"
+      stop_rule: atr
+      stop_atr_mult: 3.0
+      target_r: 2
+      exit_on_cross: true
+      min_daily_di_against: 18.8
+      min_net_signals: 24
+      rank_by: volume
+      skip_from: "11:15"
+      skip_to: "13:00"
+      max_open_trades: 2
+      capital_per_trade: 250000

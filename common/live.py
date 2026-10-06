@@ -200,6 +200,8 @@ def find_signals(strategy: Strategy, p: dict, provider, now: int, tf: int, skip:
             n_all += 1
             day_open = b.o[np.searchsorted(b.day, b.day[-1])]
             n_up += int(b.c[-1] > day_open)
+        if p.get("skip_fno") and universe.has_futures(sym, b.day[-1:])[0]:
+            continue                                                  # counted above, but not traded
         if sig.setup[-1] and sym not in skip:
             found.append({"symbol": sym, "side": int(sig.setup[-1]), "signal_price": float(b.c[-1]), "stop": float(sig.stop[-1]),
                           "priority": float(sig.priority[-1]) if sig.priority is not None and np.isfinite(sig.priority[-1]) else None})
@@ -278,6 +280,10 @@ async def prepare(now: int) -> UpstoxProvider:
     stocks = universe.load()
     end = datetime.fromtimestamp(now + IST_OFFSET_S, tz=timezone.utc).date()
     await data.download(stocks, end - timedelta(days=HIST_DAYS + 30), end)
+    try:
+        print(universe.refresh_fno(), flush=True)
+    except Exception as e:  # noqa: BLE001 - the saved list is good enough to carry on
+        print(f"Futures list not refreshed: {e}", flush=True)
     return UpstoxProvider(stocks, now)
 
 

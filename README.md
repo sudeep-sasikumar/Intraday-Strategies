@@ -61,6 +61,8 @@ To update later: push to GitHub, wait for the action, press **Redeploy** in Dock
    - each signal and each exit is recorded on the Signals tab and, if Telegram is set up, sent to your phone.
 3. The Signals tab shows, for every paper trade, the live price when the alert was raised next to the entry price the backtest assumes. The difference is your real-world slippage.
 
+**Skip stocks that have futures (F&O).** A setting under "Market filter and limits". The list of F&O stocks and its history come from NSE's daily futures files (`data/fno_membership.csv`). The scanner refreshes the list each morning from NSE; if NSE cannot be reached it carries on with the saved list.
+
 It never places an order. It needs 15-minute (or longer) candles, because Upstox limits how often 500 stocks can be checked. The portal must be running for it to work, so use the VPS for real paper trading; on this PC it only runs while `run.bat` is open.
 
 `python research/replay_check.py <run id> 12` replays past days through the scanner and compares its paper trades with a stored backtest run.

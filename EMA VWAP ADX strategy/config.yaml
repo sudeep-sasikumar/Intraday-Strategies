@@ -145,3 +145,20 @@ presets:
       skip_to: "13:00"
       max_open_trades: 2
       capital_per_trade: 250000
+  - name: Improved C, fewer trades
+    note: Improved C, but only stocks without futures (F&O) and only when the stock's volume so far today is at least normal. About 40% fewer trades, similar profit, smaller drawdown in the backtest.
+    params:
+      candle_min: "15"
+      stop_rule: atr
+      stop_atr_mult: 3.0
+      target_r: 2
+      exit_on_cross: true
+      min_daily_di_against: 18.8
+      min_net_signals: 24
+      rank_by: volume
+      skip_from: "11:15"
+      skip_to: "13:00"
+      max_open_trades: 2
+      capital_per_trade: 250000
+      skip_fno: true
+      min_rel_volume: 1.0

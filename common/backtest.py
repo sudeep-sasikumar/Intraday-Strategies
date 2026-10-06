@@ -20,7 +20,7 @@ from typing import Callable
 import numpy as np
 import pandas as pd
 
-from common import data
+from common import data, universe
 from common.data import Bars
 from common.strategy import Signals, Strategy
 
@@ -58,6 +58,9 @@ ENGINE_PARAMS: list[dict] = [
     {"key": "min_net_signals", "label": "Market-wide burst: N more stocks one way than the other (0 = off)", "value": 0,
      "type": "int", "min": 0, "max": 500, "group": "Market filter and limits",
      "help": "Take a setup only if, in that candle, setups in its direction outnumber opposite setups by at least this many."},
+    {"key": "skip_fno", "label": "Skip stocks that have futures (F&O)", "value": False, "type": "bool",
+     "group": "Market filter and limits",
+     "help": "Trade only stocks without futures. They still count towards the market-wide burst. The list comes from NSE's daily futures file."},
     {"key": "max_breadth_pct", "label": "Skip if the market has already moved (%, 100 = off)", "value": 100,
      "type": "float", "min": 0, "max": 100, "group": "Market filter and limits",
      "help": "Skip a buy if more than this % of stocks are already above their day's open (for a sell: below it)."},
@@ -308,6 +311,8 @@ def run(strategy: Strategy, params: dict, symbols: list[str],
             sig = strategy.signals(b15, p)
             if ctx is not None:
                 apply_market_filter(sig, b15.t, ctx, p)
+            if p.get("skip_fno"):
+                sig.setup[universe.has_futures(sym, b15.day)] = 0
             rows += simulate(sym, b5, b15, sig, p, tf, start_ts)
             daily = pd.Series(b5.c * b5.v).groupby(b5.day).sum()
             turnover[sym] = float(daily.median())

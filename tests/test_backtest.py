@@ -169,3 +169,18 @@ def test_priority_beats_turnover_when_trades_start_together():
             {"symbol": "C", "entry_t": 100, "exit_t": 500, "priority": 2.0}]
     kept = backtest.limit_open(rows, {"A": 9.0, "B": 1.0, "C": 1.0}, 2)
     assert [r["symbol"] for r in kept] == ["B", "C"]
+
+
+def test_futures_membership_by_day(tmp_path, monkeypatch):
+    from common import universe
+    f = tmp_path / "fno.csv"
+    f.write_text("symbol,from,to\nAAA,2024-01-01,\nBBB,2024-01-01,2024-06-28\nCCC,2024-09-02,\n")
+    monkeypatch.setattr(universe, "FNO_LIVE", f)
+    monkeypatch.setattr(universe, "_SPANS", None)
+    day = lambda iso: (np.datetime64(iso) - np.datetime64("1970-01-01")).astype(int)
+    days = np.array([day("2024-01-01"), day("2024-03-01"), day("2024-07-01"), day("2024-07-10"), day("2024-09-02"), day("2024-09-03")])
+    assert universe.has_futures("AAA", days).tolist() == [True] * 6            # there since before the file began
+    assert universe.has_futures("BBB", days).tolist() == [True, True, True, False, False, False]   # dropped after 28 Jun
+    assert universe.has_futures("CCC", days).tolist() == [False, False, False, False, False, True]  # from the day after it first appears
+    assert not universe.has_futures("ZZZ", days).any()
+    monkeypatch.setattr(universe, "_SPANS", None)
